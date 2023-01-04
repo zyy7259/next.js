@@ -288,9 +288,7 @@ export async function getPageStaticInfo(params: {
 
   const fileContent = (await tryToReadFile(pageFilePath, !isDev)) || ''
   if (
-    /runtime|getStaticProps|getServerSideProps|export const config/.test(
-      fileContent
-    )
+    /getStaticProps|getServerSideProps|export const config/.test(fileContent)
   ) {
     const swcAST = await parseModule(pageFilePath, fileContent)
     const { ssg, ssr, runtime } = checkExports(swcAST)

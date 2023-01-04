@@ -865,7 +865,7 @@ export default async function build(
         .traceAsyncFn(() =>
           promises.writeFile(
             routesManifestPath,
-            JSON.stringify(routesManifest),
+            JSON.stringify(routesManifest, null, 2),
             'utf8'
           )
         )
@@ -985,11 +985,11 @@ export default async function build(
                 compilerType: COMPILER_NAMES.server,
                 entrypoints: entrypoints.server,
               }),
-              getBaseWebpackConfig(dir, {
-                ...commonWebpackOptions,
-                compilerType: COMPILER_NAMES.edgeServer,
-                entrypoints: entrypoints.edgeServer,
-              }),
+              // getBaseWebpackConfig(dir, {
+              //   ...commonWebpackOptions,
+              //   compilerType: COMPILER_NAMES.edgeServer,
+              //   entrypoints: entrypoints.edgeServer,
+              // }),
             ])
           )
 
@@ -1021,8 +1021,10 @@ export default async function build(
           const serverResult = await runCompiler(configs[1], {
             runWebpackSpan,
           })
+          // @ts-ignore
           const edgeServerResult = configs[2]
-            ? await runCompiler(configs[2], { runWebpackSpan })
+            ? // @ts-ignore
+              await runCompiler(configs[2], { runWebpackSpan })
             : null
 
           // Only continue if there were no errors
@@ -1336,13 +1338,18 @@ export default async function build(
           config.experimental.gzipSize
         )
 
-        const middlewareManifest: MiddlewareManifest = require(path.join(
-          distDir,
-          SERVER_DIRECTORY,
-          MIDDLEWARE_MANIFEST
-        ))
+        let middlewareManifest: Partial<MiddlewareManifest> = {}
+        try {
+          middlewareManifest = require(path.join(
+            distDir,
+            SERVER_DIRECTORY,
+            MIDDLEWARE_MANIFEST
+          ))
+        } catch(err) {
+          //
+        }
 
-        for (const key of Object.keys(middlewareManifest?.functions)) {
+        for (const key of Object.keys(middlewareManifest?.functions ?? {})) {
           if (key.startsWith('/api')) {
             edgeRuntimePagesCount++
           }
@@ -1445,7 +1452,7 @@ export default async function build(
                       const manifestKey =
                         pageType === 'pages' ? page : originalAppPath || ''
 
-                      edgeInfo = middlewareManifest.functions[manifestKey]
+                      edgeInfo = middlewareManifest.functions?.[manifestKey]
                     }
 
                     let isPageStaticSpan =
@@ -2132,12 +2139,22 @@ export default async function build(
         'utf8'
       )
 
-      const middlewareManifest: MiddlewareManifest = JSON.parse(
-        await promises.readFile(
-          path.join(distDir, SERVER_DIRECTORY, MIDDLEWARE_MANIFEST),
-          'utf8'
+      let middlewareManifest: MiddlewareManifest = {
+        version: 2,
+        sortedMiddleware: [],
+        middleware: {},
+        functions: {}
+      }
+      try {
+        middlewareManifest = JSON.parse(
+          await promises.readFile(
+            path.join(distDir, SERVER_DIRECTORY, MIDDLEWARE_MANIFEST),
+            'utf8'
+          )
         )
-      )
+      } catch (err) {
+        //
+      }
 
       const outputFileTracingRoot =
         config.experimental.outputFileTracingRoot || dir
